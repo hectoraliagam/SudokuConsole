@@ -1,26 +1,79 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <cstdio>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 using namespace std;
 
-constexpr int SIZE = 9;
+constexpr int BOARD_SIZE = 9;
 
 void clearScreen()
 {
+#ifdef _WIN32
+  HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  DWORD cellCount;
+  DWORD count;
+  COORD homeCoords = {0, 0};
+
+  if (hConsole == INVALID_HANDLE_VALUE)
+  {
+    return;
+  }
+
+  if (!GetConsoleScreenBufferInfo(hConsole, &csbi))
+  {
+    return;
+  }
+
+  cellCount = csbi.dwSize.X * csbi.dwSize.Y;
+
+  FillConsoleOutputCharacter(hConsole, ' ', cellCount, homeCoords, &count);
+
+  FillConsoleOutputAttribute(hConsole, csbi.wAttributes, cellCount, homeCoords, &count);
+
+  SetConsoleCursorPosition(hConsole, homeCoords);
+#else
   cout << "\033[2J\033[H";
+#endif
+}
+void alphabetize(string strings[], int numStrings)
+{
+  for (int i = 0; i < numStrings; i++)
+  {
+    int swapIndex = i;
+    for (int j = i; j < numStrings; j++)
+    {
+      if (strings[j] < strings[swapIndex])
+      {
+        swapIndex = j;
+      }
+    }
+
+    string temp = strings[swapIndex];
+    strings[swapIndex] = strings[i];
+    strings[i] = temp;
+  }
 }
 
-void printBoard(const int board[SIZE][SIZE]);
-bool saveGame(const string &filename, int board[SIZE][SIZE]);
-bool loadGame(const string &filename, int board[SIZE][SIZE]);
-bool handleSetCommand(const string &command, int board[SIZE][SIZE]);
-bool isLegal(const int board[SIZE][SIZE], int row, int col, int value);
+void printBoard(const int board[BOARD_SIZE][BOARD_SIZE]);
+void loadDirectory(string saves[], int &count);
+void saveDirectory(const string saves[], int count);
+bool loadGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE]);
+bool saveGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE]);
+bool addSave(string saves[], int &count, const string &filename);
+bool removeSave(string saves[], int &count, const string &filename);
+bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, string &status, bool &running);
+bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string &status);
+bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value);
 
 int main()
 {
-  bool running = true;
-  int board[SIZE][SIZE] = {
+  int board[BOARD_SIZE][BOARD_SIZE] = {
       {-1, 0, 0, -8, 0, 0, -6, -5, 0},
       {0, 0, 0, -9, -1, 0, 0, -2, 0},
       {0, -8, 0, 0, -5, 0, -7, 0, -9},
@@ -31,40 +84,42 @@ int main()
       {0, -9, 0, 0, -7, -5, 0, 0, 0},
       {0, -7, -6, 0, 0, -2, 0, 0, -5}};
 
+  string savedGames[1000];
+  int numSaves = 0;
+  string statusMessage;
+  bool running = true;
+
+  loadDirectory(savedGames, numSaves);
   loadGame("autosave.txt", board);
 
   while (running)
   {
     clearScreen();
-
     printBoard(board);
+
+    if (!statusMessage.empty())
+    {
+      cout << statusMessage << "\n\n";
+      statusMessage.clear();
+    }
 
     cout << "Enter a command: ";
     string command;
     getline(cin, command);
 
-    if (command == "exit")
+    if (!handleCommand(command, board, savedGames, numSaves, statusMessage, running))
     {
-      saveGame("autosave.txt", board);
-      running = false;
-    }
-    else if (command.rfind("set", 0) == 0)
-    {
-      if (!handleSetCommand(command, board))
-      {
-        cout << "Invalid command format.\n";
-      }
-    }
-    else
-    {
-      cout << "Unknown command.\n";
+      statusMessage = "Unknown command.";
     }
   }
+
+  saveGame("autosave.txt", board);
+  saveDirectory(savedGames, numSaves);
 
   return 0;
 }
 
-void printBoard(const int board[SIZE][SIZE])
+void printBoard(const int board[BOARD_SIZE][BOARD_SIZE])
 {
   cout << "\033[38;2;150;150;150m";
 
@@ -112,54 +167,145 @@ void printBoard(const int board[SIZE][SIZE])
 
   cout << "\033[0m" << '\n';
 }
-bool saveGame(const string &filename, int board[SIZE][SIZE])
+void loadDirectory(string saves[], int &count)
 {
-  ofstream fout;
-
-  fout.open(filename);
-
-  if (fout.fail())
+  ifstream fin("directory.txt");
+  if (!fin)
   {
-    fout.close();
+    return;
+  }
+
+  fin >> count;
+  for (int i = 0; i < count; i++)
+  {
+    fin >> saves[i];
+  }
+}
+void saveDirectory(const string saves[], int count)
+{
+  ofstream fout("directory.txt");
+  fout << count << '\n';
+  for (int i = 0; i < count; i++)
+  {
+    fout << saves[i] << '\n';
+  }
+}
+bool saveGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE])
+{
+  ofstream fout(filename);
+  if (!fout)
+  {
     return false;
   }
 
-  for (int i = 0; i < 9; i++)
+  for (int i = 0; i < BOARD_SIZE; i++)
   {
-    for (int j = 0; j < 9; j++)
+    for (int j = 0; j < BOARD_SIZE; j++)
     {
       fout << board[i][j] << " ";
     }
     fout << '\n';
   }
-
-  fout.close();
   return true;
 }
-bool loadGame(const string &filename, int board[SIZE][SIZE])
+bool loadGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE])
 {
-  ifstream fin;
-
-  fin.open(filename);
-
-  if (fin.fail())
+  ifstream fin(filename);
+  if (!fin)
   {
-    fin.close();
     return false;
   }
 
-  for (int i = 0; i < 9; i++)
+  for (int i = 0; i < BOARD_SIZE; i++)
   {
-    for (int j = 0; j < 9; j++)
+    for (int j = 0; j < BOARD_SIZE; j++)
     {
       fin >> board[i][j];
     }
   }
 
-  fin.close();
   return true;
 }
-bool handleSetCommand(const string &command, int board[SIZE][SIZE])
+bool addSave(string saves[], int &count, const string &filename)
+{
+  for (int i = 0; i < count; i++)
+  {
+    if (saves[i] == filename)
+    {
+      return false;
+    }
+  }
+
+  saves[count++] = filename;
+  alphabetize(saves, count);
+  return true;
+}
+bool removeSave(string saves[], int &count, const string &filename)
+{
+  for (int i = 0; i < count; i++)
+  {
+    if (saves[i] == filename)
+    {
+      for (int j = i; j < count - 1; j++)
+      {
+        saves[j] = saves[j + 1];
+      }
+      count--;
+      return true;
+    }
+  }
+  return false;
+}
+bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, string &status, bool &running)
+{
+  if (command == "exit")
+  {
+    running = false;
+    status = "Game saved. Goodbye!";
+    return true;
+  }
+
+  if (command.rfind("set", 0) == 0)
+  {
+    return handleSetCommand(command, board, status);
+  }
+
+  if (command.rfind("load", 0) == 0)
+  {
+    string filename = command.size() > 4 ? command.substr(5) : "default.txt";
+    loadGame(filename, board);
+    return true;
+  }
+
+  if (command.rfind("save", 0) == 0)
+  {
+    string filename = command.size() > 4 ? command.substr(5) : "default.txt";
+    saveGame(filename, board);
+    addSave(saves, numSaves, filename);
+    return true;
+  }
+
+  if (command == "list saves")
+  {
+    status = "Saved Games:\n";
+    for (int i = 0; i < numSaves; i++)
+    {
+      status += "  " + saves[i] + '\n';
+    }
+    return true;
+  }
+
+  if (command.rfind("delete", 0) == 0)
+  {
+    string filename = command.substr(7);
+    removeSave(saves, numSaves, filename);
+    remove(filename.c_str());
+    return true;
+  }
+
+  return false;
+}
+bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string &status)
 {
   // Expected format: set A1 5
   if (command.size() < 7)
@@ -205,26 +351,27 @@ bool handleSetCommand(const string &command, int board[SIZE][SIZE])
 
   if (board[row][col] < 0)
   {
-    cout << "This cell is fixed.\n";
+    status = "This cell is fixed.";
     return true;
   }
 
   if (board[row][col] > 0)
   {
-    cout << "Cell already occupied.\n";
+    status = "Cell already occupied.";
     return true;
   }
 
   if (!isLegal(board, row, col, value))
   {
-    cout << "Illegal move.\n";
+    status = "Illegal move.";
     return true;
   }
 
   board[row][col] = value;
+  status = "Move applied successfully.";
   return true;
 }
-bool isLegal(const int board[SIZE][SIZE], int row, int col, int value)
+bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value)
 {
   if (value < 1 || value > 9)
   {
