@@ -1,15 +1,23 @@
 #include <iostream>
-#include <string>
+
 using namespace std;
 
 void waitForEnter();
 
 int main()
 {
-  cout << "Sudoku Console\n";
+  int board[9][9] = {};
+
+  for (int i = 0; i < 9; i++)
+  {
+    for (int j = 0; j < 9; j++)
+    {
+      cout << board[i][j] << ' ';
+    }
+    cout << '\n';
+  }
 
   waitForEnter();
-
   return 0;
 }
 
