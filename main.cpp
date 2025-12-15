@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <fstream>
 
 using namespace std;
 
@@ -11,6 +12,8 @@ void clearScreen()
 }
 
 void printBoard(const int board[SIZE][SIZE]);
+bool saveGame(const string &filename, int board[SIZE][SIZE]);
+bool loadGame(const string &filename, int board[SIZE][SIZE]);
 bool handleSetCommand(const string &command, int board[SIZE][SIZE]);
 bool isLegal(const int board[SIZE][SIZE], int row, int col, int value);
 
@@ -28,6 +31,8 @@ int main()
       {0, -9, 0, 0, -7, -5, 0, 0, 0},
       {0, -7, -6, 0, 0, -2, 0, 0, -5}};
 
+  loadGame("autosave.txt", board);
+
   while (running)
   {
     clearScreen();
@@ -40,6 +45,7 @@ int main()
 
     if (command == "exit")
     {
+      saveGame("autosave.txt", board);
       running = false;
     }
     else if (command.rfind("set", 0) == 0)
@@ -105,6 +111,53 @@ void printBoard(const int board[SIZE][SIZE])
   }
 
   cout << "\033[0m" << '\n';
+}
+bool saveGame(const string &filename, int board[SIZE][SIZE])
+{
+  ofstream fout;
+
+  fout.open(filename);
+
+  if (fout.fail())
+  {
+    fout.close();
+    return false;
+  }
+
+  for (int i = 0; i < 9; i++)
+  {
+    for (int j = 0; j < 9; j++)
+    {
+      fout << board[i][j] << " ";
+    }
+    fout << '\n';
+  }
+
+  fout.close();
+  return true;
+}
+bool loadGame(const string &filename, int board[SIZE][SIZE])
+{
+  ifstream fin;
+
+  fin.open(filename);
+
+  if (fin.fail())
+  {
+    fin.close();
+    return false;
+  }
+
+  for (int i = 0; i < 9; i++)
+  {
+    for (int j = 0; j < 9; j++)
+    {
+      fin >> board[i][j];
+    }
+  }
+
+  fin.close();
+  return true;
 }
 bool handleSetCommand(const string &command, int board[SIZE][SIZE])
 {
