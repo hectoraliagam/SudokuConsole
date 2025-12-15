@@ -2,16 +2,37 @@
 
 using namespace std;
 
-void waitForEnter();
+// void waitForEnter();
 void printBoard(const int board[9][9]);
 
 int main()
 {
+  bool running = true;
+
   int board[9][9] = {};
 
-  printBoard(board);
+  while (running)
+  {
+    printBoard(board);
 
-  waitForEnter();
+    cout << "Enter a command: ";
+    string command;
+    getline(cin, command);
+
+    if (command.substr(0, 3) == "set")
+    {
+      int y = command[4] - 'a';
+      int x = command[5] - '1';
+      int value = command[7] - '0';
+      board[x][y] = value;
+    }
+    if (command == "exit")
+    {
+      running = false;
+    }
+  }
+
+  // waitForEnter();
   return 0;
 }
 
@@ -23,6 +44,7 @@ void waitForEnter()
 }
 void printBoard(const int board[9][9])
 {
+  cout << '\n';
   for (int i = 0; i < 9; i++)
   {
     if (i % 3 == 0 && i != 0)
@@ -40,4 +62,5 @@ void printBoard(const int board[9][9])
     }
     cout << '\n';
   }
+  cout << '\n';
 }
