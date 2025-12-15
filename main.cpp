@@ -41,14 +41,16 @@ int main()
 
 void printBoard(const int board[9][9])
 {
-  cout << '\n';
+  cout << "\n    1 2 3   4 5 6   7 8 9\n\n";
 
   for (int i = 0; i < 9; i++)
   {
     if (i % 3 == 0 && i != 0)
     {
-      cout << "------+-------+------\n";
+      cout << "    ------+-------+------\n";
     }
+
+    cout << char('A' + i) << "   ";
 
     for (int j = 0; j < 9; j++)
     {
@@ -59,6 +61,7 @@ void printBoard(const int board[9][9])
 
       cout << board[i][j] << ' ';
     }
+
     cout << '\n';
   }
 
