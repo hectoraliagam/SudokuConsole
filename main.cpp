@@ -5,6 +5,7 @@ using namespace std;
 
 void printBoard(const int board[9][9]);
 bool handleSetCommand(const string &command, int board[9][9]);
+bool isLegal(const int board[9][9], int row, int col, int value);
 
 int main()
 {
@@ -27,7 +28,7 @@ int main()
     {
       if (!handleSetCommand(command, board))
       {
-        cout << "Invalid command.\n";
+        cout << "Invalid command format.\n";
       }
     }
     else
@@ -69,16 +70,17 @@ void printBoard(const int board[9][9])
 }
 bool handleSetCommand(const string &command, int board[9][9])
 {
-  if (command.size() != 8)
+  // Expected format: set a1 5
+  if (command.length() != 8)
   {
     return false;
   }
 
-  char rowChar = command[4];   // a-i
-  char colChar = command[5];   // 1-9
-  char valueChar = command[7]; // 0-9
+  char rowChar = toupper(command[4]);
+  char colChar = command[5];
+  char valChar = command[7];
 
-  if (rowChar < 'a' || rowChar > 'i')
+  if (rowChar < 'A' || rowChar > 'I')
   {
     return false;
   }
@@ -88,15 +90,69 @@ bool handleSetCommand(const string &command, int board[9][9])
     return false;
   }
 
-  if (valueChar < '0' || valueChar > '9')
+  if (valChar < '1' || valChar > '9')
   {
     return false;
   }
 
-  int row = rowChar - 'a'; // fila
-  int col = colChar - '1'; // columna
-  int value = valueChar - '0';
+  int row = rowChar - 'A';
+  int col = colChar - '1';
+  int value = valChar - '0';
+
+  if (board[row][col] != 0)
+  {
+    cout << "Cell already occupied.\n";
+    return true;
+  }
+
+  if (!isLegal(board, row, col, value))
+  {
+    cout << "Illegal move.\n";
+    return true;
+  }
 
   board[row][col] = value;
+  return true;
+}
+bool isLegal(const int board[9][9], int row, int col, int value)
+{
+  if (value < 1 || value > 9)
+  {
+    return false;
+  }
+
+  // Check row
+  for (int j = 0; j < 9; j++)
+  {
+    if (board[row][j] == value)
+    {
+      return false;
+    }
+  }
+
+  // Check column
+  for (int i = 0; i < 9; i++)
+  {
+    if (board[i][col] == value)
+    {
+      return false;
+    }
+  }
+
+  // Check subsquare 3x3
+  int startRow = (row / 3) * 3;
+  int startCol = (col / 3) * 3;
+
+  for (int i = startRow; i < startRow + 3; i++)
+  {
+    for (int j = startCol; j < startCol + 3; j++)
+    {
+      if (board[i][j] == value)
+      {
+        return false;
+      }
+    }
+  }
+
   return true;
 }
