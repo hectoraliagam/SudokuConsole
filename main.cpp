@@ -3,17 +3,35 @@
 
 using namespace std;
 
-void printBoard(const int board[9][9]);
-bool handleSetCommand(const string &command, int board[9][9]);
-bool isLegal(const int board[9][9], int row, int col, int value);
+constexpr int SIZE = 9;
+
+void clearScreen()
+{
+  cout << "\033[2J\033[H";
+}
+
+void printBoard(const int board[SIZE][SIZE]);
+bool handleSetCommand(const string &command, int board[SIZE][SIZE]);
+bool isLegal(const int board[SIZE][SIZE], int row, int col, int value);
 
 int main()
 {
   bool running = true;
-  int board[9][9] = {};
+  int board[SIZE][SIZE] = {
+      {-1, 0, 0, -8, 0, 0, -6, -5, 0},
+      {0, 0, 0, -9, -1, 0, 0, -2, 0},
+      {0, -8, 0, 0, -5, 0, -7, 0, -9},
+      {0, 0, 0, 0, 0, 0, 0, -9, 0},
+      {0, -5, -3, 0, -4, 0, -1, -7, 0},
+      {0, -4, 0, 0, 0, 0, 0, 0, 0},
+      {-5, 0, -2, 0, -9, 0, 0, -3, 0},
+      {0, -9, 0, 0, -7, -5, 0, 0, 0},
+      {0, -7, -6, 0, 0, -2, 0, 0, -5}};
 
   while (running)
   {
+    clearScreen();
+
     printBoard(board);
 
     cout << "Enter a command: ";
@@ -24,7 +42,7 @@ int main()
     {
       running = false;
     }
-    else if (command.substr(0, 3) == "set")
+    else if (command.rfind("set", 0) == 0)
     {
       if (!handleSetCommand(command, board))
       {
@@ -40,12 +58,16 @@ int main()
   return 0;
 }
 
-void printBoard(const int board[9][9])
+void printBoard(const int board[SIZE][SIZE])
 {
+  cout << "\033[38;2;150;150;150m";
+
   cout << "\n    1 2 3   4 5 6   7 8 9\n\n";
 
   for (int i = 0; i < 9; i++)
   {
+    cout << "\033[38;2;150;150;150m";
+
     if (i % 3 == 0 && i != 0)
     {
       cout << "    ------+-------+------\n";
@@ -57,28 +79,57 @@ void printBoard(const int board[9][9])
     {
       if (j % 3 == 0 && j != 0)
       {
-        cout << "| ";
+        cout << "\033[38;2;150;150;150m" << "| ";
       }
 
-      cout << board[i][j] << ' ';
+      if (board[i][j] < 0)
+      {
+        cout << "\033[38;2;0;255;0m";
+      }
+      else
+      {
+        cout << "\033[0m";
+      }
+
+      if (board[i][j] != 0)
+      {
+        cout << abs(board[i][j]) << " ";
+      }
+      else
+      {
+        cout << "  ";
+      }
     }
 
     cout << '\n';
   }
 
-  cout << '\n';
+  cout << "\033[0m" << '\n';
 }
-bool handleSetCommand(const string &command, int board[9][9])
+bool handleSetCommand(const string &command, int board[SIZE][SIZE])
 {
-  // Expected format: set a1 5
-  if (command.length() != 8)
+  // Expected format: set A1 5
+  if (command.size() < 7)
   {
     return false;
   }
 
-  char rowChar = toupper(command[4]);
-  char colChar = command[5];
-  char valChar = command[7];
+  if (command.substr(0, 3) != "set" || command[3] != ' ')
+  {
+    return false;
+  }
+
+  int pos = 4;
+
+  char rowChar = toupper(command[pos++]);
+  char colChar = command[pos++];
+
+  if (pos >= command.size() || command[pos++] != ' ')
+  {
+    return false;
+  }
+
+  char valChar = command[pos];
 
   if (rowChar < 'A' || rowChar > 'I')
   {
@@ -99,7 +150,13 @@ bool handleSetCommand(const string &command, int board[9][9])
   int col = colChar - '1';
   int value = valChar - '0';
 
-  if (board[row][col] != 0)
+  if (board[row][col] < 0)
+  {
+    cout << "This cell is fixed.\n";
+    return true;
+  }
+
+  if (board[row][col] > 0)
   {
     cout << "Cell already occupied.\n";
     return true;
@@ -114,7 +171,7 @@ bool handleSetCommand(const string &command, int board[9][9])
   board[row][col] = value;
   return true;
 }
-bool isLegal(const int board[9][9], int row, int col, int value)
+bool isLegal(const int board[SIZE][SIZE], int row, int col, int value)
 {
   if (value < 1 || value > 9)
   {
@@ -124,7 +181,7 @@ bool isLegal(const int board[9][9], int row, int col, int value)
   // Check row
   for (int j = 0; j < 9; j++)
   {
-    if (board[row][j] == value)
+    if (abs(board[row][j]) == value)
     {
       return false;
     }
@@ -133,7 +190,7 @@ bool isLegal(const int board[9][9], int row, int col, int value)
   // Check column
   for (int i = 0; i < 9; i++)
   {
-    if (board[i][col] == value)
+    if (abs(board[i][col]) == value)
     {
       return false;
     }
@@ -147,7 +204,7 @@ bool isLegal(const int board[9][9], int row, int col, int value)
   {
     for (int j = startCol; j < startCol + 3; j++)
     {
-      if (board[i][j] == value)
+      if (abs(board[i][j]) == value)
       {
         return false;
       }
