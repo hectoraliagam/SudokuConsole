@@ -42,6 +42,8 @@ bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int valu
 bool solveGame(int board[BOARD_SIZE][BOARD_SIZE]);
 void resetGame(int board[BOARD_SIZE][BOARD_SIZE]);
 bool randFill(const int board[BOARD_SIZE][BOARD_SIZE]);
+bool multiSolve(int board[BOARD_SIZE][BOARD_SIZE], int &numSolutions);
+bool generateGame(int board[BOARD_SIZE][BOARD_SIZE], int targetFilled);
 
 // ===== command handling =====
 bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running);
@@ -53,7 +55,13 @@ void signalHandler(int signal);
 // ===== main =====
 int main()
 {
+  srand(static_cast<unsigned>(time(nullptr)));
+
   signal(SIGINT, signalHandler);
+  signal(SIGTERM, signalHandler);
+#ifdef _WIN32
+  signal(SIGBREAK, signalHandler);
+#endif
 
   int (*board)[BOARD_SIZE] = new int[BOARD_SIZE][BOARD_SIZE];
 
@@ -73,7 +81,6 @@ int main()
   string *savedGames = new string[MAX_SAVES];
   int numSaves = 0;
 
-  srand(static_cast<unsigned>(time(nullptr)));
   stringstream console;
   bool running = true;
 
@@ -431,6 +438,99 @@ bool randFill(int board[BOARD_SIZE][BOARD_SIZE])
   }
   return true;
 }
+bool multiSolve(int board[BOARD_SIZE][BOARD_SIZE], int &numSolutions)
+{
+  for (int row = 0; row < BOARD_SIZE; row++)
+  {
+    for (int col = 0; col < BOARD_SIZE; col++)
+    {
+      if (board[row][col] == 0)
+      {
+        for (int val = 1; val <= BOARD_SIZE; val++)
+        {
+          if (isLegal(board, row, col, val))
+          {
+            board[row][col] = val;
+
+            multiSolve(board, numSolutions);
+
+            board[row][col] = 0;
+
+            if (numSolutions >= 2)
+            {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+    }
+  }
+  numSolutions++;
+  return numSolutions >= 2;
+}
+bool generateGame(int board[BOARD_SIZE][BOARD_SIZE], int targetFilled)
+{
+  int filled = 0;
+  for (int i = 0; i < BOARD_SIZE; i++)
+  {
+    for (int j = 0; j < BOARD_SIZE; j++)
+    {
+      if (board[i][j] != 0)
+      {
+        filled++;
+      }
+    }
+  }
+
+  if (filled <= targetFilled)
+  {
+    return true;
+  }
+
+  int cells[BOARD_SIZE * BOARD_SIZE];
+  int count = 0;
+
+  for (int i = 0; i < BOARD_SIZE * BOARD_SIZE; i++)
+  {
+    cells[i] = i;
+  }
+
+  while (count < BOARD_SIZE * BOARD_SIZE)
+  {
+    int idx = rand() % (BOARD_SIZE * BOARD_SIZE - count);
+    int cell = cells[idx];
+    cells[idx] = cells[BOARD_SIZE * BOARD_SIZE - 1 - count];
+    count++;
+
+    int row = cell / BOARD_SIZE;
+    int col = cell % BOARD_SIZE;
+
+    if (board[row][col] == 0)
+    {
+      continue;
+    }
+
+    int backup = board[row][col];
+    board[row][col] = 0;
+
+    int solutions = 0;
+    int temp[BOARD_SIZE][BOARD_SIZE];
+    memcpy(temp, board, sizeof(temp));
+
+    multiSolve(temp, solutions);
+
+    if (solutions != 1)
+    {
+      board[row][col] = backup;
+    }
+    else if (generateGame(board, targetFilled))
+    {
+      return true;
+    }
+  }
+  return false;
+}
 bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running)
 {
   if (command == "exit")
@@ -575,6 +675,53 @@ bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], str
     {
       console << "Failed to generate board.";
     }
+    return true;
+  }
+
+  if (command.rfind("new", 0) == 0)
+  {
+    string mode = command.size() > 4 ? command.substr(4) : "";
+
+    int targetFilled;
+
+    if (mode == "easy")
+    {
+      targetFilled = 35 + rand() % 5;
+    }
+    else if (mode == "medium")
+    {
+      targetFilled = 28 + rand() % 5;
+    }
+    else if (mode == "hard")
+    {
+      targetFilled = 22 + rand() % 5;
+    }
+    else
+    {
+      console << "Usage: new easy | medium | hard";
+      return true;
+    }
+
+    for (int i = 0; i < BOARD_SIZE; i++)
+    {
+      for (int j = 0; j < BOARD_SIZE; j++)
+      {
+        board[i][j] = 0;
+      }
+    }
+
+    randFill(board);
+    generateGame(board, targetFilled);
+
+    for (int i = 0; i < BOARD_SIZE; i++)
+    {
+      for (int j = 0; j < BOARD_SIZE; j++)
+      {
+        board[i][j] = -board[i][j];
+      }
+    }
+
+    console << "New " << mode << " game generated.";
     return true;
   }
 
