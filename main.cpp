@@ -1,7 +1,10 @@
+// ===== includes =====
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <cstdio>
+#include <sstream>
+#include <csignal>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -9,7 +12,95 @@
 
 using namespace std;
 
+// ===== constants =====
 constexpr int BOARD_SIZE = 9;
+constexpr int MAX_SAVES = 1000;
+
+// ===== global state =====
+bool g_running = true;
+
+// ===== utility funtions =====
+void clearScreen();
+void alphabetize(string strings[], int numStrings);
+
+// ===== IO / persistence =====
+void loadDirectory(string saves[], int &count);
+void saveDirectory(const string saves[], int count);
+bool loadGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE]);
+bool saveGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE]);
+bool addSave(string saves[], int &count, const string &filename);
+bool removeSave(string saves[], int &count, const string &filename);
+
+// ===== game logic =====
+void printBoard(const int board[BOARD_SIZE][BOARD_SIZE]);
+bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value);
+
+// ===== command handling =====
+bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running);
+bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console);
+
+// ===== signal handling =====
+void signalHandler(int signal);
+
+// ===== main =====
+int main()
+{
+  signal(SIGINT, signalHandler);
+
+  int (*board)[BOARD_SIZE] = new int[BOARD_SIZE][BOARD_SIZE];
+
+  int initialBoard[BOARD_SIZE][BOARD_SIZE] = {
+      {-1, 0, 0, -8, 0, 0, -6, -5, 0},
+      {0, 0, 0, -9, -1, 0, 0, -2, 0},
+      {0, -8, 0, 0, -5, 0, -7, 0, -9},
+      {0, 0, 0, 0, 0, 0, 0, -9, 0},
+      {0, -5, -3, 0, -4, 0, -1, -7, 0},
+      {0, -4, 0, 0, 0, 0, 0, 0, 0},
+      {-5, 0, -2, 0, -9, 0, 0, -3, 0},
+      {0, -9, 0, 0, -7, -5, 0, 0, 0},
+      {0, -7, -6, 0, 0, -2, 0, 0, -5}};
+
+  memcpy(board, initialBoard, sizeof(initialBoard));
+
+  string *savedGames = new string[MAX_SAVES];
+  int numSaves = 0;
+
+  stringstream console;
+  bool running = true;
+
+  loadDirectory(savedGames, numSaves);
+  loadGame("autosave.txt", board);
+
+  while (running && g_running)
+  {
+    clearScreen();
+    printBoard(board);
+
+    if (!console.str().empty())
+    {
+      cout << console.str() << "\n\n";
+      console.str("");
+      console.clear();
+    }
+
+    cout << "Enter a command: ";
+    string command;
+    getline(cin, command);
+
+    if (!handleCommand(command, board, savedGames, numSaves, console, running))
+    {
+      console << "Unknown command.";
+    }
+  }
+
+  saveGame("autosave.txt", board);
+  saveDirectory(savedGames, numSaves);
+
+  delete[] board;
+  delete[] savedGames;
+
+  return 0;
+}
 
 void clearScreen()
 {
@@ -58,114 +149,6 @@ void alphabetize(string strings[], int numStrings)
     strings[swapIndex] = strings[i];
     strings[i] = temp;
   }
-}
-
-void printBoard(const int board[BOARD_SIZE][BOARD_SIZE]);
-void loadDirectory(string saves[], int &count);
-void saveDirectory(const string saves[], int count);
-bool loadGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE]);
-bool saveGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE]);
-bool addSave(string saves[], int &count, const string &filename);
-bool removeSave(string saves[], int &count, const string &filename);
-bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, string &status, bool &running);
-bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string &status);
-bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value);
-
-int main()
-{
-  int board[BOARD_SIZE][BOARD_SIZE] = {
-      {-1, 0, 0, -8, 0, 0, -6, -5, 0},
-      {0, 0, 0, -9, -1, 0, 0, -2, 0},
-      {0, -8, 0, 0, -5, 0, -7, 0, -9},
-      {0, 0, 0, 0, 0, 0, 0, -9, 0},
-      {0, -5, -3, 0, -4, 0, -1, -7, 0},
-      {0, -4, 0, 0, 0, 0, 0, 0, 0},
-      {-5, 0, -2, 0, -9, 0, 0, -3, 0},
-      {0, -9, 0, 0, -7, -5, 0, 0, 0},
-      {0, -7, -6, 0, 0, -2, 0, 0, -5}};
-
-  string savedGames[1000];
-  int numSaves = 0;
-  string statusMessage;
-  bool running = true;
-
-  loadDirectory(savedGames, numSaves);
-  loadGame("autosave.txt", board);
-
-  while (running)
-  {
-    clearScreen();
-    printBoard(board);
-
-    if (!statusMessage.empty())
-    {
-      cout << statusMessage << "\n\n";
-      statusMessage.clear();
-    }
-
-    cout << "Enter a command: ";
-    string command;
-    getline(cin, command);
-
-    if (!handleCommand(command, board, savedGames, numSaves, statusMessage, running))
-    {
-      statusMessage = "Unknown command.";
-    }
-  }
-
-  saveGame("autosave.txt", board);
-  saveDirectory(savedGames, numSaves);
-
-  return 0;
-}
-
-void printBoard(const int board[BOARD_SIZE][BOARD_SIZE])
-{
-  cout << "\033[38;2;150;150;150m";
-
-  cout << "\n    1 2 3   4 5 6   7 8 9\n\n";
-
-  for (int i = 0; i < 9; i++)
-  {
-    cout << "\033[38;2;150;150;150m";
-
-    if (i % 3 == 0 && i != 0)
-    {
-      cout << "    ------+-------+------\n";
-    }
-
-    cout << char('A' + i) << "   ";
-
-    for (int j = 0; j < 9; j++)
-    {
-      if (j % 3 == 0 && j != 0)
-      {
-        cout << "\033[38;2;150;150;150m" << "| ";
-      }
-
-      if (board[i][j] < 0)
-      {
-        cout << "\033[38;2;0;255;0m";
-      }
-      else
-      {
-        cout << "\033[0m";
-      }
-
-      if (board[i][j] != 0)
-      {
-        cout << abs(board[i][j]) << " ";
-      }
-      else
-      {
-        cout << "  ";
-      }
-    }
-
-    cout << '\n';
-  }
-
-  cout << "\033[0m" << '\n';
 }
 void loadDirectory(string saves[], int &count)
 {
@@ -256,18 +239,108 @@ bool removeSave(string saves[], int &count, const string &filename)
   }
   return false;
 }
-bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, string &status, bool &running)
+void printBoard(const int board[BOARD_SIZE][BOARD_SIZE])
+{
+  cout << "\033[38;2;150;150;150m";
+
+  cout << "\n    1 2 3   4 5 6   7 8 9\n\n";
+
+  for (int i = 0; i < 9; i++)
+  {
+    cout << "\033[38;2;150;150;150m";
+
+    if (i % 3 == 0 && i != 0)
+    {
+      cout << "    ------+-------+------\n";
+    }
+
+    cout << char('A' + i) << "   ";
+
+    for (int j = 0; j < 9; j++)
+    {
+      if (j % 3 == 0 && j != 0)
+      {
+        cout << "\033[38;2;150;150;150m" << "| ";
+      }
+
+      if (board[i][j] < 0)
+      {
+        cout << "\033[38;2;0;255;0m";
+      }
+      else
+      {
+        cout << "\033[0m";
+      }
+
+      if (board[i][j] != 0)
+      {
+        cout << abs(board[i][j]) << " ";
+      }
+      else
+      {
+        cout << "  ";
+      }
+    }
+
+    cout << '\n';
+  }
+
+  cout << "\033[0m" << '\n';
+}
+bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value)
+{
+  if (value < 1 || value > 9)
+  {
+    return false;
+  }
+
+  // Check row
+  for (int j = 0; j < 9; j++)
+  {
+    if (abs(board[row][j]) == value)
+    {
+      return false;
+    }
+  }
+
+  // Check column
+  for (int i = 0; i < 9; i++)
+  {
+    if (abs(board[i][col]) == value)
+    {
+      return false;
+    }
+  }
+
+  // Check subsquare 3x3
+  int startRow = (row / 3) * 3;
+  int startCol = (col / 3) * 3;
+
+  for (int i = startRow; i < startRow + 3; i++)
+  {
+    for (int j = startCol; j < startCol + 3; j++)
+    {
+      if (abs(board[i][j]) == value)
+      {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running)
 {
   if (command == "exit")
   {
     running = false;
-    status = "Game saved. Goodbye!";
+    console << "Game saved. Goodbye!";
     return true;
   }
 
   if (command.rfind("set", 0) == 0)
   {
-    return handleSetCommand(command, board, status);
+    return handleSetCommand(command, board, console);
   }
 
   if (command.rfind("load", 0) == 0)
@@ -287,10 +360,18 @@ bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], str
 
   if (command == "list saves")
   {
-    status = "Saved Games:\n";
-    for (int i = 0; i < numSaves; i++)
+    console << "Saved Games:";
+    if (numSaves > 0)
     {
-      status += "  " + saves[i] + '\n';
+      console << '\n';
+      for (int i = 0; i < numSaves; i++)
+      {
+        console << "  " << saves[i];
+        if (i < numSaves - 1)
+        {
+          console << '\n';
+        }
+      }
     }
     return true;
   }
@@ -305,7 +386,7 @@ bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], str
 
   return false;
 }
-bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string &status)
+bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
 {
   // Expected format: set A1 5
   if (command.size() < 7)
@@ -351,65 +432,30 @@ bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], 
 
   if (board[row][col] < 0)
   {
-    status = "This cell is fixed.";
+    console << "This cell is fixed.";
     return true;
   }
 
   if (board[row][col] > 0)
   {
-    status = "Cell already occupied.";
+    console << "Cell already occupied.";
     return true;
   }
 
   if (!isLegal(board, row, col, value))
   {
-    status = "Illegal move.";
+    console << "Illegal move.";
     return true;
   }
 
   board[row][col] = value;
-  status = "Move applied successfully.";
+  console << "Move applied successfully.";
   return true;
 }
-bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value)
+void signalHandler(int signal)
 {
-  if (value < 1 || value > 9)
+  if (signal == SIGINT)
   {
-    return false;
+    g_running = false;
   }
-
-  // Check row
-  for (int j = 0; j < 9; j++)
-  {
-    if (abs(board[row][j]) == value)
-    {
-      return false;
-    }
-  }
-
-  // Check column
-  for (int i = 0; i < 9; i++)
-  {
-    if (abs(board[i][col]) == value)
-    {
-      return false;
-    }
-  }
-
-  // Check subsquare 3x3
-  int startRow = (row / 3) * 3;
-  int startCol = (col / 3) * 3;
-
-  for (int i = startRow; i < startRow + 3; i++)
-  {
-    for (int j = startCol; j < startCol + 3; j++)
-    {
-      if (abs(board[i][j]) == value)
-      {
-        return false;
-      }
-    }
-  }
-
-  return true;
 }
