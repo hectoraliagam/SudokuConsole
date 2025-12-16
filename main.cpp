@@ -467,6 +467,55 @@ bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], str
     return true;
   }
 
+  if (command.rfind("hint", 0) == 0)
+  {
+    // Expected format: hint A1
+    if (command.size() != 7 || command[4] != ' ')
+    {
+      console << "Usage: hint A1";
+      return true;
+    }
+
+    char rowChar = toupper(command[5]);
+    char colChar = command[6];
+
+    if (rowChar < 'A' || rowChar > 'I' || colChar < '1' || colChar > '9')
+    {
+      console << "Invalid position.";
+      return true;
+    }
+
+    int row = rowChar - 'A';
+    int col = colChar - '1';
+
+    if (board[row][col] < 0)
+    {
+      console << "This cell is fixed.";
+      return true;
+    }
+
+    if (board[row][col] > 0)
+    {
+      console << "Cell already filled.";
+      return true;
+    }
+
+    int temp[BOARD_SIZE][BOARD_SIZE];
+    memcpy(temp, board, sizeof(temp));
+
+    resetGame(temp);
+
+    if (!solveGame(temp))
+    {
+      console << "No solution available.";
+      return true;
+    }
+
+    console << "Hint for " << rowChar << colChar << ": " << temp[row][col];
+
+    return true;
+  }
+
   return false;
 }
 bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
