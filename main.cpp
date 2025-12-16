@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <sstream>
 #include <csignal>
+#include <cstring>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -23,7 +24,7 @@ bool g_running = true;
 void clearScreen();
 void alphabetize(string strings[], int numStrings);
 
-// ===== IO / persistence =====
+// ===== persistence =====
 void loadDirectory(string saves[], int &count);
 void saveDirectory(const string saves[], int count);
 bool loadGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE]);
@@ -31,10 +32,14 @@ bool saveGame(const string &filename, int board[BOARD_SIZE][BOARD_SIZE]);
 bool addSave(string saves[], int &count, const string &filename);
 bool removeSave(string saves[], int &count, const string &filename);
 
+// ===== test =====
+void loadTestGame(int board[BOARD_SIZE][BOARD_SIZE], int id);
+
 // ===== game logic =====
 void printBoard(const int board[BOARD_SIZE][BOARD_SIZE]);
 bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value);
 bool solveGame(int board[BOARD_SIZE][BOARD_SIZE]);
+void resetGame(int board[BOARD_SIZE][BOARD_SIZE]);
 
 // ===== command handling =====
 bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running);
@@ -240,6 +245,21 @@ bool removeSave(string saves[], int &count, const string &filename)
   }
   return false;
 }
+void loadTestGame(int board[BOARD_SIZE][BOARD_SIZE], int id)
+{
+  static int tests[][BOARD_SIZE][BOARD_SIZE] = {
+      {{-1, 0, 0, -8, 0, 0, -6, -5, 0},
+       {0, 0, 0, -9, -1, 0, 0, -2, 0},
+       {0, -8, 0, 0, -5, 0, -7, 0, -9},
+       {0, 0, 0, 0, 0, 0, 0, -9, 0},
+       {0, -5, -3, 0, -4, 0, -1, -7, 0},
+       {0, -4, 0, 0, 0, 0, 0, 0, 0},
+       {-5, 0, -2, 0, -9, 0, 0, -3, 0},
+       {0, -9, 0, 0, -7, -5, 0, 0, 0},
+       {0, -7, -6, 0, 0, -2, 0, 0, -5}}};
+
+  memcpy(board, tests[id], sizeof(tests[id]));
+}
 void printBoard(const int board[BOARD_SIZE][BOARD_SIZE])
 {
   cout << "\033[38;2;150;150;150m";
@@ -357,6 +377,19 @@ bool solveGame(int board[BOARD_SIZE][BOARD_SIZE])
   }
   return true;
 }
+void resetGame(int board[BOARD_SIZE][BOARD_SIZE])
+{
+  for (int i = 0; i < BOARD_SIZE; i++)
+  {
+    for (int j = 0; j < BOARD_SIZE; j++)
+    {
+      if (board[i][j] > 0)
+      {
+        board[i][j] = 0;
+      }
+    }
+  }
+}
 bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running)
 {
   if (command == "exit")
@@ -412,8 +445,17 @@ bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], str
     return true;
   }
 
+  if (command == "test")
+  {
+    loadTestGame(board, 0);
+    console << "Test game loaded.";
+    return true;
+  }
+
   if (command == "solve")
   {
+    resetGame(board);
+
     if (solveGame(board))
     {
       console << "Game solved successfully.";
