@@ -34,6 +34,7 @@ bool removeSave(string saves[], int &count, const string &filename);
 // ===== game logic =====
 void printBoard(const int board[BOARD_SIZE][BOARD_SIZE]);
 bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value);
+bool solveGame(int board[BOARD_SIZE][BOARD_SIZE]);
 
 // ===== command handling =====
 bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running);
@@ -329,6 +330,33 @@ bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int valu
 
   return true;
 }
+bool solveGame(int board[BOARD_SIZE][BOARD_SIZE])
+{
+  for (int row = 0; row < BOARD_SIZE; row++)
+  {
+    for (int col = 0; col < BOARD_SIZE; col++)
+    {
+      if (board[row][col] == 0)
+      {
+        for (int val = 1; val <= 9; val++)
+        {
+          if (isLegal(board, row, col, val))
+          {
+            board[row][col] = val;
+
+            if (solveGame(board))
+            {
+              return true;
+            }
+            board[row][col] = 0; // backtrack
+          }
+        }
+        return false;
+      }
+    }
+  }
+  return true;
+}
 bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running)
 {
   if (command == "exit")
@@ -381,6 +409,19 @@ bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], str
     string filename = command.substr(7);
     removeSave(saves, numSaves, filename);
     remove(filename.c_str());
+    return true;
+  }
+
+  if (command == "solve")
+  {
+    if (solveGame(board))
+    {
+      console << "Game solved successfully.";
+    }
+    else
+    {
+      console << "No solution found.";
+    }
     return true;
   }
 
