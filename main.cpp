@@ -46,8 +46,18 @@ bool multiSolve(int board[BOARD_SIZE][BOARD_SIZE], int &numSolutions);
 bool generateGame(int board[BOARD_SIZE][BOARD_SIZE], int targetFilled);
 
 // ===== command handling =====
-bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running);
+bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, bool &running, stringstream &console);
+bool handleExitCommand(const string &command, bool &running, stringstream &console);
 bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console);
+bool handleLoadCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console);
+bool handleSaveCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console);
+bool handleListSavesCommand(const string &command, string saves[], int numSaves, stringstream &console);
+bool handleDeleteCommand(const string &command, string saves[], int &numSaves, stringstream &console);
+bool handleTestCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console);
+bool handleSolveCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console);
+bool handleHintCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console);
+bool handleRandCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console);
+bool handleNewCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console);
 
 // ===== signal handling =====
 void signalHandler(int signal);
@@ -103,7 +113,7 @@ int main()
     string command;
     getline(cin, command);
 
-    if (!handleCommand(command, board, savedGames, numSaves, console, running))
+    if (!handleCommand(command, board, savedGames, numSaves, running, console))
     {
       console << "Unknown command.";
     }
@@ -531,201 +541,65 @@ bool generateGame(int board[BOARD_SIZE][BOARD_SIZE], int targetFilled)
   }
   return false;
 }
-bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running)
+bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, bool &running, stringstream &console)
 {
-  if (command == "exit")
+  if (handleExitCommand(command, running, console))
   {
-    running = false;
-    console << "Game saved. Goodbye!";
     return true;
   }
-
-  if (command.rfind("set", 0) == 0)
+  if (handleSetCommand(command, board, console))
   {
-    return handleSetCommand(command, board, console);
-  }
-
-  if (command.rfind("load", 0) == 0)
-  {
-    string filename = command.size() > 4 ? command.substr(5) : "default.txt";
-    loadGame(filename, board);
     return true;
   }
-
-  if (command.rfind("save", 0) == 0)
+  if (handleLoadCommand(command, board, console))
   {
-    string filename = command.size() > 4 ? command.substr(5) : "default.txt";
-    saveGame(filename, board);
-    addSave(saves, numSaves, filename);
     return true;
   }
-
-  if (command == "list saves")
+  if (handleSaveCommand(command, board, saves, numSaves, console))
   {
-    console << "Saved Games:";
-    if (numSaves > 0)
-    {
-      console << '\n';
-      for (int i = 0; i < numSaves; i++)
-      {
-        console << "  " << saves[i];
-        if (i < numSaves - 1)
-        {
-          console << '\n';
-        }
-      }
-    }
     return true;
   }
-
-  if (command.rfind("delete", 0) == 0)
+  if (handleListSavesCommand(command, saves, numSaves, console))
   {
-    string filename = command.substr(7);
-    removeSave(saves, numSaves, filename);
-    remove(filename.c_str());
     return true;
   }
-
-  if (command == "test")
+  if (handleDeleteCommand(command, saves, numSaves, console))
   {
-    loadTestGame(board, 0);
-    console << "Test game loaded.";
     return true;
   }
-
-  if (command == "solve")
+  if (handleTestCommand(command, board, console))
   {
-    resetGame(board);
-
-    if (solveGame(board))
-    {
-      console << "Game solved successfully.";
-    }
-    else
-    {
-      console << "No solution found.";
-    }
     return true;
   }
-
-  if (command.rfind("hint", 0) == 0)
+  if (handleSolveCommand(command, board, console))
   {
-    // Expected format: hint A1
-    if (command.size() != 7 || command[4] != ' ')
-    {
-      console << "Usage: hint A1";
-      return true;
-    }
-
-    char rowChar = toupper(command[5]);
-    char colChar = command[6];
-
-    if (rowChar < 'A' || rowChar > 'I' || colChar < '1' || colChar > '9')
-    {
-      console << "Invalid position.";
-      return true;
-    }
-
-    int row = rowChar - 'A';
-    int col = colChar - '1';
-
-    if (board[row][col] < 0)
-    {
-      console << "This cell is fixed.";
-      return true;
-    }
-
-    if (board[row][col] > 0)
-    {
-      console << "Cell already filled.";
-      return true;
-    }
-
-    int temp[BOARD_SIZE][BOARD_SIZE];
-    memcpy(temp, board, sizeof(temp));
-
-    resetGame(temp);
-
-    if (!solveGame(temp))
-    {
-      console << "No solution available.";
-      return true;
-    }
-
-    console << "Hint for " << rowChar << colChar << ": " << temp[row][col];
-
     return true;
   }
-
-  if (command == "rand")
+  if (handleHintCommand(command, board, console))
   {
-    for (int i = 0; i < BOARD_SIZE; i++)
-    {
-      for (int j = 0; j < BOARD_SIZE; j++)
-      {
-        board[i][j] = 0;
-      }
-    }
-
-    if (randFill(board))
-    {
-      console << "Random board generated.";
-    }
-    else
-    {
-      console << "Failed to generate board.";
-    }
     return true;
   }
-
-  if (command.rfind("new", 0) == 0)
+  if (handleRandCommand(command, board, console))
   {
-    string mode = command.size() > 4 ? command.substr(4) : "";
-
-    int targetFilled;
-
-    if (mode == "easy")
-    {
-      targetFilled = 35 + rand() % 5;
-    }
-    else if (mode == "medium")
-    {
-      targetFilled = 28 + rand() % 5;
-    }
-    else if (mode == "hard")
-    {
-      targetFilled = 22 + rand() % 5;
-    }
-    else
-    {
-      console << "Usage: new easy | medium | hard";
-      return true;
-    }
-
-    for (int i = 0; i < BOARD_SIZE; i++)
-    {
-      for (int j = 0; j < BOARD_SIZE; j++)
-      {
-        board[i][j] = 0;
-      }
-    }
-
-    randFill(board);
-    generateGame(board, targetFilled);
-
-    for (int i = 0; i < BOARD_SIZE; i++)
-    {
-      for (int j = 0; j < BOARD_SIZE; j++)
-      {
-        board[i][j] = -board[i][j];
-      }
-    }
-
-    console << "New " << mode << " game generated.";
+    return true;
+  }
+  if (handleNewCommand(command, board, console))
+  {
     return true;
   }
 
   return false;
+}
+bool handleExitCommand(const string &command, bool &running, stringstream &console)
+{
+  if (command != "exit")
+  {
+    return false;
+  }
+
+  running = false;
+  console << "Game saved. Goodbye!";
+  return true;
 }
 bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
 {
@@ -734,7 +608,6 @@ bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], 
   {
     return false;
   }
-
   if (command.substr(0, 3) != "set" || command[3] != ' ')
   {
     return false;
@@ -756,12 +629,10 @@ bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], 
   {
     return false;
   }
-
   if (colChar < '1' || colChar > '9')
   {
     return false;
   }
-
   if (valChar < '1' || valChar > '9')
   {
     return false;
@@ -776,13 +647,11 @@ bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], 
     console << "This cell is fixed.";
     return true;
   }
-
   if (board[row][col] > 0)
   {
     console << "Cell already occupied.";
     return true;
   }
-
   if (!isLegal(board, row, col, value))
   {
     console << "Illegal move.";
@@ -791,6 +660,255 @@ bool handleSetCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], 
 
   board[row][col] = value;
   console << "Move applied successfully.";
+  return true;
+}
+bool handleLoadCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
+{
+  if (command.rfind("load", 0) != 0)
+  {
+    return false;
+  }
+
+  string filename = command.size() > 4 ? command.substr(5) : "default.txt";
+
+  if (loadGame(filename, board))
+  {
+    console << "Game loaded: " << filename;
+  }
+  else
+  {
+    console << "Failed to load game.";
+  }
+  return true;
+}
+bool handleSaveCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console)
+{
+  if (command.rfind("save", 0) != 0)
+  {
+    return false;
+  }
+
+  string filename = command.size() > 4 ? command.substr(5) : "default.txt";
+
+  if (saveGame(filename, board))
+  {
+    addSave(saves, numSaves, filename);
+    console << "Game saved: " << filename;
+  }
+  else
+  {
+    console << "Failed to save game.";
+  }
+
+  return true;
+}
+bool handleListSavesCommand(const string &command, string saves[], int numSaves, stringstream &console)
+{
+  if (command != "list saves")
+  {
+    return false;
+  }
+
+  console << "Saved Games:";
+
+  if (numSaves > 0)
+  {
+    console << '\n';
+    for (int i = 0; i < numSaves; i++)
+    {
+      console << "  " << saves[i];
+      if (i < numSaves - 1)
+      {
+        console << '\n';
+      }
+    }
+  }
+
+  return true;
+}
+bool handleDeleteCommand(const string &command, string saves[], int &numSaves, stringstream &console)
+{
+  if (command.rfind("delete", 0) != 0)
+  {
+    return false;
+  }
+
+  if (command.size() <= 7)
+  {
+    console << "Usage: delete filename";
+    return true;
+  }
+
+  string filename = command.substr(7);
+
+  if (removeSave(saves, numSaves, filename))
+  {
+    remove(filename.c_str());
+    console << "Save deleted: " << filename;
+  }
+  else
+  {
+    console << "Save not found.";
+  }
+
+  return true;
+}
+bool handleTestCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
+{
+  if (command != "test")
+  {
+    return false;
+  }
+
+  loadTestGame(board, 0);
+  console << "Test game loaded.";
+  return true;
+}
+bool handleSolveCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
+{
+  if (command != "solve")
+  {
+    return false;
+  }
+
+  resetGame(board);
+
+  if (solveGame(board))
+  {
+    console << "Game solved successfully.";
+  }
+  else
+  {
+    console << "No solution found.";
+  }
+
+  return true;
+}
+bool handleHintCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
+{
+  if (command.rfind("hint", 0) != 0)
+  {
+    return false;
+  }
+
+  // Expected format: hint A1
+  if (command.size() != 7 || command[4] != ' ')
+  {
+    console << "Usage: hint A1";
+    return true;
+  }
+
+  char rowChar = toupper(command[5]);
+  char colChar = command[6];
+
+  if (rowChar < 'A' || rowChar > 'I' || colChar < '1' || colChar > '9')
+  {
+    console << "Invalid position.";
+    return true;
+  }
+
+  int row = rowChar - 'A';
+  int col = colChar - '1';
+
+  if (board[row][col] < 0)
+  {
+    console << "This cell is fixed.";
+    return true;
+  }
+  if (board[row][col] > 0)
+  {
+    console << "Cell already filled.";
+    return true;
+  }
+
+  int temp[BOARD_SIZE][BOARD_SIZE];
+  memcpy(temp, board, sizeof(temp));
+
+  resetGame(temp);
+
+  if (!solveGame(temp))
+  {
+    console << "No solution available.";
+    return true;
+  }
+
+  console << "Hint for " << rowChar << colChar << ": " << temp[row][col];
+  return true;
+}
+bool handleRandCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
+{
+  if (command != "rand")
+  {
+    return false;
+  }
+
+  for (int i = 0; i < BOARD_SIZE; i++)
+  {
+    for (int j = 0; j < BOARD_SIZE; j++)
+    {
+      board[i][j] = 0;
+    }
+  }
+
+  if (randFill(board))
+  {
+    console << "Random board generated.";
+  }
+  else
+  {
+    console << "Failed to generate board.";
+  }
+
+  return true;
+}
+bool handleNewCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], stringstream &console)
+{
+  if (command.rfind("new", 0) != 0)
+  {
+    return false;
+  }
+
+  string mode = command.size() > 4 ? command.substr(4) : "";
+  int targetFilled;
+
+  if (mode == "easy")
+  {
+    targetFilled = 35 + rand() % 5;
+  }
+  else if (mode == "medium")
+  {
+    targetFilled = 28 + rand() % 5;
+  }
+  else if (mode == "hard")
+  {
+    targetFilled = 22 + rand() % 5;
+  }
+  else
+  {
+    console << "Usage: new easy | medium | hard";
+    return true;
+  }
+
+  for (int i = 0; i < BOARD_SIZE; i++)
+  {
+    for (int j = 0; j < BOARD_SIZE; j++)
+    {
+      board[i][j] = 0;
+    }
+  }
+
+  randFill(board);
+  generateGame(board, targetFilled);
+
+  for (int i = 0; i < BOARD_SIZE; i++)
+  {
+    for (int j = 0; j < BOARD_SIZE; j++)
+    {
+      board[i][j] = -board[i][j];
+    }
+  }
+
+  console << "New " << mode << " game generated.";
   return true;
 }
 void signalHandler(int signal)
