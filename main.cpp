@@ -6,6 +6,7 @@
 #include <sstream>
 #include <csignal>
 #include <cstring>
+#include <ctime>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -40,6 +41,7 @@ void printBoard(const int board[BOARD_SIZE][BOARD_SIZE]);
 bool isLegal(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int value);
 bool solveGame(int board[BOARD_SIZE][BOARD_SIZE]);
 void resetGame(int board[BOARD_SIZE][BOARD_SIZE]);
+bool randFill(const int board[BOARD_SIZE][BOARD_SIZE]);
 
 // ===== command handling =====
 bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running);
@@ -71,6 +73,7 @@ int main()
   string *savedGames = new string[MAX_SAVES];
   int numSaves = 0;
 
+  srand(static_cast<unsigned>(time(nullptr)));
   stringstream console;
   bool running = true;
 
@@ -390,6 +393,44 @@ void resetGame(int board[BOARD_SIZE][BOARD_SIZE])
     }
   }
 }
+bool randFill(int board[BOARD_SIZE][BOARD_SIZE])
+{
+  for (int row = 0; row < BOARD_SIZE; row++)
+  {
+    for (int col = 0; col < BOARD_SIZE; col++)
+    {
+      if (board[row][col] == 0)
+      {
+        int values[BOARD_SIZE] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+        int numValues = BOARD_SIZE;
+
+        while (numValues)
+        {
+          int index = rand() % numValues;
+          int value = values[index];
+
+          numValues--;
+          for (int i = index; i < numValues; i++)
+          {
+            values[i] = values[i + 1];
+          }
+
+          if (isLegal(board, row, col, value))
+          {
+            board[row][col] = value;
+            if (randFill(board))
+            {
+              return true;
+            }
+          }
+        }
+        board[row][col] = 0;
+        return false;
+      }
+    }
+  }
+  return true;
+}
 bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], string saves[], int &numSaves, stringstream &console, bool &running)
 {
   if (command == "exit")
@@ -513,6 +554,27 @@ bool handleCommand(const string &command, int board[BOARD_SIZE][BOARD_SIZE], str
 
     console << "Hint for " << rowChar << colChar << ": " << temp[row][col];
 
+    return true;
+  }
+
+  if (command == "rand")
+  {
+    for (int i = 0; i < BOARD_SIZE; i++)
+    {
+      for (int j = 0; j < BOARD_SIZE; j++)
+      {
+        board[i][j] = 0;
+      }
+    }
+
+    if (randFill(board))
+    {
+      console << "Random board generated.";
+    }
+    else
+    {
+      console << "Failed to generate board.";
+    }
     return true;
   }
 
